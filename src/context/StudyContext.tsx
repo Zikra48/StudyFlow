@@ -17,6 +17,7 @@ import {
   initialChatMessages,
   initialUserSettings,
 } from '../data/initialData';
+import { generateLocalStudyPlan, generateLocalAssistantResponse } from '../utils/academicPlanner';
 
 interface GeneratePlanParams {
   dailyHours?: number;
@@ -448,32 +449,41 @@ export const StudyProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           },
         };
 
-        const res = await fetch('/api/generate-plan', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
+        try {
+          const res = await fetch('/api/generate-plan', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          });
+
+          if (res.ok) {
+            const data = await res.json();
+            if (data.plan) {
+              const fullPlan: AiStudyPlan = {
+                id: `plan-${Date.now()}`,
+                generatedAt: new Date().toISOString(),
+                ...data.plan,
+              };
+              setAiStudyPlan(fullPlan);
+              return true;
+            }
+          }
+        } catch (fetchErr) {
+          console.info('Backend API unavailable, using built-in study planner algorithm:', fetchErr);
+        }
+
+        // Graceful fallback for static hosting (GitHub Pages) or offline use
+        const fallbackPlan = generateLocalStudyPlan(subjects, tasks, {
+          dailyHours: params?.dailyHours || userSettings.dailyStudyHoursTarget || 5,
+          sessionLength: params?.sessionLength || 60,
+          weekendIntense: params?.weekendIntense,
+          customGoal: params?.customGoal,
         });
-
-        if (!res.ok) {
-          const errData = await res.json().catch(() => ({}));
-          throw new Error(errData.error || `HTTP error ${res.status}`);
-        }
-
-        const data = await res.json();
-        if (data.plan) {
-          const fullPlan: AiStudyPlan = {
-            id: `plan-${Date.now()}`,
-            generatedAt: new Date().toISOString(),
-            ...data.plan,
-          };
-          setAiStudyPlan(fullPlan);
-          return true;
-        } else {
-          throw new Error('Received invalid plan structure from server.');
-        }
+        setAiStudyPlan(fallbackPlan);
+        return true;
       } catch (err: any) {
         console.error('Failed to generate study plan:', err);
-        setPlanError(err.message || 'Could not connect to Gemini API. Please check your setup.');
+        setPlanError(err.message || 'Could not generate plan. Please try again.');
         return false;
       } finally {
         setLoadingPlan(false);
@@ -576,39 +586,55 @@ export const StudyProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           ),
         };
 
-        const res = await fetch('/api/study-assistant', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            message: text,
-            history: chatMessages.slice(-6).map((m) => ({ role: m.role, content: m.content })),
-            studyContext,
-          }),
-        });
+        let replyContent = '';
+        try {
+          const res = await fetch('/api/study-assistant', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              message: text,
+              history: chatMessages.slice(-6).map((m) => ({ role: m.role, content: m.content })),
+              studyContext,
+            }),
+          });
 
-        if (!res.ok) {
-          const errData = await res.json().catch(() => ({}));
-          throw new Error(errData.error || `HTTP ${res.status}`);
+          if (res.ok) {
+            const data = await res.json();
+            if (data.reply) {
+              replyContent = data.reply;
+            }
+          }
+        } catch (fetchErr) {
+          console.info('Backend assistant unavailable, generating local strategist advice:', fetchErr);
         }
 
-        const data = await res.json();
+        if (!replyContent) {
+          replyContent = generateLocalAssistantResponse(text, {
+            subjects,
+            activeTasks: tasks.filter((t) => t.status !== 'Completed'),
+            nearestExam: upcomingExams[0],
+            studentName: userSettings.studentName,
+          });
+        }
+
         const assistantMsg: ChatMessage = {
           id: `msg-${Date.now() + 1}`,
           role: 'assistant',
-          content: data.reply || 'Here is what I recommend for your study schedule.',
+          content: replyContent,
           timestamp: Date.now(),
         };
 
         setChatMessages((prev) => [...prev, assistantMsg]);
       } catch (err: any) {
         console.error('Study assistant error:', err);
-        setAssistantError(err.message || 'Unable to receive response from StudyFlow AI.');
         const fallbackMsg: ChatMessage = {
           id: `msg-${Date.now() + 1}`,
           role: 'assistant',
-          content: `I encountered an issue connecting to the AI model (${err.message || 'Server error'}). In the meantime, based on your backlog, prioritizing your highest difficulty subject (**${
-            subjects.find((s) => s.difficulty === 'Hard')?.name || 'Cryptography'
-          }**) and nearest deadline is recommended!`,
+          content: generateLocalAssistantResponse(text, {
+            subjects,
+            activeTasks: tasks.filter((t) => t.status !== 'Completed'),
+            nearestExam: upcomingExams[0],
+          }),
           timestamp: Date.now(),
         };
         setChatMessages((prev) => [...prev, fallbackMsg]);
