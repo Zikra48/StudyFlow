@@ -1,0 +1,6 @@
+{
+  "name": "StudyFlow AI — Smart Study Planner",
+  "description": "Plan Smarter. Study Better. Intelligent university study planning app with personalized 7-day schedules, task management, exam tracking, and AI study assistant.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
