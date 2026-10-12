@@ -15,9 +15,14 @@
     <script>
       try {
         if (window.location.hostname.indexOf('github.io') !== -1) {
-          var p = window.location.pathname;
-          if (p.length > 1 && !p.endsWith('/') && !p.split('/').pop().includes('.')) {
-            window.location.replace(p + '/' + window.location.search + window.location.hash);
+          if (window.location.pathname.indexOf('/docs') === -1) {
+            var base = window.location.pathname.replace(/\/+$/, '');
+            window.location.replace(base + '/docs/' + window.location.search + window.location.hash);
+          } else {
+            var p = window.location.pathname;
+            if (!p.endsWith('/') && !p.split('/').pop().includes('.')) {
+              window.location.replace(p + '/' + window.location.search + window.location.hash);
+            }
           }
         }
       } catch (e) {}
