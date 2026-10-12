@@ -60,9 +60,9 @@ export const TasksView: React.FC<TasksViewProps> = ({ onOpenTaskModal, onOpenTim
         } else if (deadlineFilter === 'Overdue') {
           matchesDeadline = remaining.isPast && task.status !== 'Completed';
         } else if (deadlineFilter === 'ThisWeek') {
+          const targetTime = task.deadline ? new Date(task.deadline).getTime() : 0;
           const diffDays = Math.ceil(
-            (new Date(task.deadline).getTime() - new Date().setHours(0, 0, 0, 0)) /
-              (1000 * 3600 * 24)
+            (targetTime - new Date().setHours(0, 0, 0, 0)) / (1000 * 3600 * 24)
           );
           matchesDeadline = diffDays >= 0 && diffDays <= 7;
         }
@@ -71,7 +71,9 @@ export const TasksView: React.FC<TasksViewProps> = ({ onOpenTaskModal, onOpenTim
       })
       .sort((a, b) => {
         if (sortBy === 'deadline') {
-          return new Date(a.deadline).getTime() - new Date(b.deadline).getTime();
+          const timeA = a.deadline ? new Date(a.deadline).getTime() : 0;
+          const timeB = b.deadline ? new Date(b.deadline).getTime() : 0;
+          return timeA - timeB;
         }
         if (sortBy === 'priority') {
           const pScore: Record<PriorityLevel, number> = { High: 3, Medium: 2, Low: 1 };
@@ -328,7 +330,7 @@ export const TasksView: React.FC<TasksViewProps> = ({ onOpenTaskModal, onOpenTim
                               : 'text-slate-500'
                           }
                         >
-                          Due: {task.deadline.replace('T', ' ')} ({remaining.text})
+                          Due: {task.deadline && typeof task.deadline === 'string' ? task.deadline.replace('T', ' ') : 'No date'} ({remaining.text})
                         </span>
                       </div>
                     </div>

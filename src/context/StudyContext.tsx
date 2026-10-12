@@ -705,13 +705,17 @@ export const StudyProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   // --- Computed Metrics ---
   const todayTasks = useMemo(() => {
     const todayStr = new Date().toISOString().split('T')[0];
-    return tasks.filter((t) => t.deadline.startsWith(todayStr));
+    return tasks.filter((t) => t.deadline && typeof t.deadline === 'string' && t.deadline.startsWith(todayStr));
   }, [tasks]);
 
   const upcomingAssignments = useMemo(() => {
     return tasks
       .filter((t) => t.category === 'Assignment' && t.status !== 'Completed')
-      .sort((a, b) => new Date(a.deadline).getTime() - new Date(b.deadline).getTime());
+      .sort((a, b) => {
+        const timeA = a.deadline ? new Date(a.deadline).getTime() : 0;
+        const timeB = b.deadline ? new Date(b.deadline).getTime() : 0;
+        return timeA - timeB;
+      });
   }, [tasks]);
 
   const upcomingExams = useMemo(() => {
@@ -773,15 +777,16 @@ export const StudyProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     // Add Tasks & Assignments
     tasks.forEach((t) => {
-      const datePart = t.deadline.split('T')[0];
-      const timePart = t.deadline.includes('T') ? t.deadline.split('T')[1] : undefined;
+      const hasDeadline = t.deadline && typeof t.deadline === 'string';
+      const datePart = hasDeadline ? t.deadline.split('T')[0] : new Date().toISOString().split('T')[0];
+      const timePart = hasDeadline && t.deadline.includes('T') ? t.deadline.split('T')[1] : undefined;
       events.push({
         id: `event-task-${t.id}`,
-        title: t.title,
+        title: t.title || 'Untitled Task',
         date: datePart,
         time: timePart,
         type: t.category === 'Assignment' ? 'assignment' : 'deadline',
-        subjectName: t.subjectName,
+        subjectName: t.subjectName || 'General',
         subjectColor: subjects.find((s) => s.id === t.subjectId)?.color || 'indigo',
         priority: t.priority,
         description: t.description,

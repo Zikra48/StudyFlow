@@ -69,8 +69,10 @@ export const getSubjectColorClass = (colorName: string = 'indigo') => {
   return map[colorName] || map.indigo;
 };
 
-export const formatDaysRemaining = (targetDateStr: string): { text: string; isUrgent: boolean; isToday: boolean; isPast: boolean } => {
+export const formatDaysRemaining = (targetDateStr?: string): { text: string; isUrgent: boolean; isToday: boolean; isPast: boolean } => {
+  if (!targetDateStr) return { text: 'No date', isUrgent: false, isToday: false, isPast: false };
   const target = new Date(targetDateStr);
+  if (isNaN(target.getTime())) return { text: 'No date', isUrgent: false, isToday: false, isPast: false };
   const now = new Date();
   // Strip time for exact date calculation
   target.setHours(0, 0, 0, 0);
