@@ -18,6 +18,7 @@ import { SettingsView } from './components/SettingsView';
 import { TaskModal } from './components/TaskModal';
 import { SubjectModal } from './components/SubjectModal';
 import { FocusTimerModal } from './components/FocusTimerModal';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { Task, Subject } from './types';
 
 function MainApp() {
@@ -131,8 +132,10 @@ function MainApp() {
 
 export default function App() {
   return (
-    <StudyProvider>
-      <MainApp />
-    </StudyProvider>
+    <ErrorBoundary>
+      <StudyProvider>
+        <MainApp />
+      </StudyProvider>
+    </ErrorBoundary>
   );
 }

@@ -116,7 +116,9 @@ export const StudyProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [subjects, setSubjects] = useState<Subject[]>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEYS.SUBJECTS);
-      return saved ? JSON.parse(saved) : initialSubjects;
+      if (!saved) return initialSubjects;
+      const parsed = JSON.parse(saved);
+      return Array.isArray(parsed) && parsed.length > 0 ? parsed : initialSubjects;
     } catch {
       return initialSubjects;
     }
@@ -125,7 +127,9 @@ export const StudyProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [tasks, setTasks] = useState<Task[]>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEYS.TASKS);
-      return saved ? JSON.parse(saved) : initialTasks;
+      if (!saved) return initialTasks;
+      const parsed = JSON.parse(saved);
+      return Array.isArray(parsed) ? parsed : initialTasks;
     } catch {
       return initialTasks;
     }
@@ -134,7 +138,9 @@ export const StudyProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [studySessions, setStudySessions] = useState<StudySession[]>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEYS.SESSIONS);
-      return saved ? JSON.parse(saved) : initialStudySessions;
+      if (!saved) return initialStudySessions;
+      const parsed = JSON.parse(saved);
+      return Array.isArray(parsed) ? parsed : initialStudySessions;
     } catch {
       return initialStudySessions;
     }
@@ -143,7 +149,9 @@ export const StudyProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [aiStudyPlan, setAiStudyPlan] = useState<AiStudyPlan | null>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEYS.PLAN);
-      return saved ? JSON.parse(saved) : initialAiStudyPlan;
+      if (!saved) return initialAiStudyPlan;
+      const parsed = JSON.parse(saved);
+      return parsed && typeof parsed === 'object' && Array.isArray(parsed.days) ? parsed : initialAiStudyPlan;
     } catch {
       return initialAiStudyPlan;
     }
@@ -152,7 +160,9 @@ export const StudyProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEYS.CHAT);
-      return saved ? JSON.parse(saved) : initialChatMessages;
+      if (!saved) return initialChatMessages;
+      const parsed = JSON.parse(saved);
+      return Array.isArray(parsed) ? parsed : initialChatMessages;
     } catch {
       return initialChatMessages;
     }
@@ -161,56 +171,71 @@ export const StudyProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [userSettings, setUserSettings] = useState<UserSettings>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEYS.SETTINGS);
-      return saved ? JSON.parse(saved) : initialUserSettings;
+      if (!saved) return initialUserSettings;
+      const parsed = JSON.parse(saved);
+      return parsed && typeof parsed === 'object' ? { ...initialUserSettings, ...parsed } : initialUserSettings;
     } catch {
       return initialUserSettings;
     }
   });
 
   // Timer state
-  const [activeTimer, setActiveTimer] = useState<ActiveTimerState>({
+  const [activeTimer, setActiveTimer] = useState<ActiveTimerState>(() => ({
     isRunning: false,
     mode: 'focus',
-    timeLeft: (userSettings.pomodoroFocusMinutes || 45) * 60,
-    initialDuration: (userSettings.pomodoroFocusMinutes || 45) * 60,
-    subjectId: subjects[0]?.id || '',
-  });
+    timeLeft: (userSettings?.pomodoroFocusMinutes || 45) * 60,
+    initialDuration: (userSettings?.pomodoroFocusMinutes || 45) * 60,
+    subjectId: subjects[0]?.id || 'sub-1',
+  }));
 
   const [loadingPlan, setLoadingPlan] = useState(false);
   const [planError, setPlanError] = useState<string | null>(null);
   const [assistantLoading, setAssistantLoading] = useState(false);
   const [assistantError, setAssistantError] = useState<string | null>(null);
 
-  // Sync state to localStorage
+  // Safe localStorage helper
+  const safeSave = (key: string, data: any) => {
+    try {
+      localStorage.setItem(key, JSON.stringify(data));
+    } catch {
+      // Ignored for restricted storage environments
+    }
+  };
+
+  // Sync state to localStorage safely
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.SUBJECTS, JSON.stringify(subjects));
+    safeSave(STORAGE_KEYS.SUBJECTS, subjects);
   }, [subjects]);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.TASKS, JSON.stringify(tasks));
+    safeSave(STORAGE_KEYS.TASKS, tasks);
   }, [tasks]);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.SESSIONS, JSON.stringify(studySessions));
+    safeSave(STORAGE_KEYS.SESSIONS, studySessions);
   }, [studySessions]);
 
   useEffect(() => {
     if (aiStudyPlan) {
-      localStorage.setItem(STORAGE_KEYS.PLAN, JSON.stringify(aiStudyPlan));
+      safeSave(STORAGE_KEYS.PLAN, aiStudyPlan);
     }
   }, [aiStudyPlan]);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.CHAT, JSON.stringify(chatMessages));
+    safeSave(STORAGE_KEYS.CHAT, chatMessages);
   }, [chatMessages]);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(userSettings));
-    // Apply dark mode class to html document
-    if (userSettings.theme === 'dark') {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
+    safeSave(STORAGE_KEYS.SETTINGS, userSettings);
+    // Apply dark mode class to html document safely
+    try {
+      if (userSettings?.theme === 'dark') {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
+    } catch {
+      // In case documentElement is unavailable
     }
   }, [userSettings]);
 
